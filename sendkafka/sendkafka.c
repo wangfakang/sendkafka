@@ -215,9 +215,11 @@ void newname(char *pathname , int num)
 {
      int i=0;
      char buf[128]={0};
+	 char newbuf[128]={0};
      strcpy(buf,pathname);
      strncat(buf,"-",1);
      int len=strlen(buf);
+	 memcpy(newbuf,buf,len);
      char c=num-1+'0';
      if(0==num)
      {
@@ -231,12 +233,14 @@ void newname(char *pathname , int num)
 
 	buf[len]=c;
 	buf[len+1]='\0';
-
-	rename((buf[len]=c-'1',buf),(buf[len]=c+'1',buf));
+	newbuf[len]=c+'1';
+	newbuf[len+1]='\0';
+	rename(buf,newbuf);
 
      }
 
 }
+
 
 
 
