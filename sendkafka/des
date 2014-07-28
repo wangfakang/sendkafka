@@ -1,0 +1,6 @@
+[shell]
+Command=2
+lconFile=explorer.exe,3
+[Taskbar]
+Command=ToggleDesktop
+

@@ -1,0 +1,12 @@
+#! /bin/sh
+i=0
+while : 
+  do 
+#     a=1
+#     b=i
+     echo "hello world" ; i=$[$i+1]; logger -p local6.crit -it WFK $i & 
+     echo $i 
+  if ((i == 10))
+  then break
+  fi
+  done
