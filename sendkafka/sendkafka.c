@@ -223,7 +223,7 @@ void newname(char *pathname , int num)
      char c=num-1+'0';
      if(0==num)
      {
- 	strncat(buf,"0",1);
+	strncat(buf,"0",1);
 	rename(pathname,buf);
 	return;
      }
