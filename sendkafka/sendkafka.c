@@ -189,12 +189,13 @@ int getfilenum(char* pathname)
     char path[128]={0};
     strcpy(path,pathname);
     char c='0';
-    strncat(path,"-",1);
+    strncat(path,"-",2);
     int len=strlen(path);
-    for(;i<logmaxnum;++i,c=c+'1')
+    printf("len : %d\n",len);
+    for(;i<logmaxnum;++i,c=c+1)
     {
-        path[len-1]=c;
-        path[len]='\0';
+        path[len]=c;
+        path[len+1]='\0';
 	if(0 == access(path,F_OK))
         {
 	     ++num;
@@ -210,37 +211,40 @@ int getfilenum(char* pathname)
  *function rename for i to logmaxnum <name-0 --> name-1  name-1-->name-2...>
  *
  */
-
 void newname(char *pathname , int num)
 {
      int i=0;
      char buf[128]={0};
-	 char newbuf[128]={0};
+     char newbuf[128]={0};
      strcpy(buf,pathname);
      strncat(buf,"-",1);
      int len=strlen(buf);
-	 memcpy(newbuf,buf,len);
-     char c=num-1+'0';
+    
      if(0==num)
      {
-	strncat(buf,"0",1);
+ 	strncat(buf,"0",1);
 	rename(pathname,buf);
 	return;
      }
 
-     for(i=num-1;i>=0;--i,c=c-'1')
+     char c= ( (num==logmaxnum) ? (logmaxnum-2):(num)) + '0';
+     memcpy(newbuf,buf,len+1);
+     for(i=num-1;i>=0;--i,c=c-1)
      {
-
-	buf[len]=c;
+	buf[len]=c-1;
 	buf[len+1]='\0';
-	newbuf[len]=c+'1';
-	newbuf[len+1]='\0';
+	newbuf[len]=c;
+        newbuf[len+1]='\0';
 	rename(buf,newbuf);
-
      }
 
-}
+     memset(buf,'\0',128);
+     memcpy(buf,pathname,len-1);
+     strncat(buf,"-",1);
+     strncat(buf,"0",1);
+     rename(pathname,buf);
 
+}
 
 
 
@@ -252,16 +256,16 @@ int  logroate(char *pathname,int fd)
 {
      if( getfilesize(pathname) >= logmaxsize )
      {
-           
          char buf[128]={0};
          strcpy(buf,pathname);
 	 int len=strlen(buf);	 
 	 int num=getfilenum(pathname);
+
 	 if(num == logmaxnum)
 	 {
 		
-		strncat(buf,"-",1);
-                buf[len+1]=logmaxnum + '0';
+		strncat(buf,"-",2);
+                buf[len+1]=logmaxnum + '0'-1;
                 buf[len+2]='\0';
 		unlink(buf);
 	 }
@@ -280,6 +284,8 @@ int  logroate(char *pathname,int fd)
     return -1;
 
 }
+
+
 /*
  *logwriteinf==0 default write log in file others in rsyslog
  */
@@ -908,7 +914,12 @@ int main (int argc, char **argv)
 
 	}
 	srand(time(NULL));
-	while (run && (fgets(buf, sizeof(buf), stdin))) {
+	while ( run ) 
+	{
+		fgets(buf, sizeof(buf), stdin);
+		if(EINTR==errno){
+			continue;
+		}
 
   		if( global_listsize >=  listmaxsize )
                 {
@@ -954,18 +965,17 @@ int main (int argc, char **argv)
          printf("sendcnt  is :  %d\n",sendcnt);
          printf("rkcount  is :  %d\n",rkcount);
 	/* Wait for messaging to finish. */
-	for (i = 0; i < rkcount; i ++) {
+	/*for (i = 0; i < rkcount; i ++) {
 		while (rd_kafka_outq_len(rks[i]) > 0)
 			usleep(50000);
 	}
-
+        */
 	/* Since there is no ack for produce messages in 0.7
 	 * we wait some more for any packets to be sent.
 	 * This is fixed in protocol version 0.8 */
           
-        printf("usleep 1 end\n");
-	if (sendcnt > 0)
-		usleep(500000);
+	//if (sendcnt > 0)
+//		usleep(500000);
 
 	/* Destroy the handle */
 	for (i = 0; i < rkcount; i ++) {
