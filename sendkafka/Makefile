@@ -20,4 +20,4 @@ install:
 
 
 clean:
-	rm -f sendkafka
+	rm -rf *.o sendkafka

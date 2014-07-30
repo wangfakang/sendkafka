@@ -1,4 +1,4 @@
-/*
+﻿/*
  * librdkafka - Apache Kafka C library
  *
  * Copyright (c) 2012, Magnus Edenhill
@@ -632,6 +632,11 @@ void listdestroy(nodeinfo*head)
 
 void writefile(nodeinfo *head)
 {
+     if(getfilesize(global_dflogpath)>0)
+     {
+	  unlink(global_dflogpath);
+     }
+
      int fd=open(global_dflogpath,O_WRONLY|O_APPEND|O_CREAT,0666);
      assert(-1 != fd);
      char *buf=NULL;
@@ -907,7 +912,7 @@ int main (int argc, char **argv)
                         strcpy(buf,getcurrenttime1());
                         strncat(buf,"kafka_new producer is fail...",29);                   
 			perror(buf);
-
+        		write_log(logwriteinf,LOG_CRIT,buf);    
 			run=0;
 
 		}
@@ -947,7 +952,11 @@ int main (int argc, char **argv)
 			ret = rd_kafka_produce(rks[rk], topic, partition, RD_KAFKA_OP_F_FREE, opbuf, len);
 			if (ret != 0) {
 				fprintf(stderr, "%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);
-
+        			char *buf=calloc(1,strlen(opbuf)+128);
+				sprintf(buf,"%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);
+			 	write_log(logwriteinf,LOG_INFO,buf);    
+				free(buf);
+				buf=NULL;
 			}
 		}
 
@@ -959,7 +968,13 @@ int main (int argc, char **argv)
                 
 		if (sendcnt % 100000 == 0) {
 		     fprintf(stderr, "%s sendkafka[%d]: Sent %i messages to topic %s\n", getcurrenttime1(),getpid(), sendcnt, topic);
+
+		     char *buf=calloc(1,strlen(topic)+128);
+		     sprintf(buf,"%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);                                write_log(logwriteinf,LOG_INFO,buf);    
+		     free(buf);
+		     buf=NULL;
 		}
+				
 	}
 
          printf("sendcnt  is :  %d\n",sendcnt);
