@@ -106,6 +106,7 @@ void usage(const char * cmd)
 			" Options:\n"
 			"  -h                print this help message\n"
 			"  -b <brokers>      Broker addresses (localhost:9092)\n"
+			"  -p <partitions>      partitions  (/etc/sendkafka.conf)\n"
 			"  -c <config>       config file (/etc/sendkafka.conf)\n"
 			"  -t <topic>        topic default rdfile (/etc/sendkafka.conf)\n"
 			"  -l <global_efliblogpath> liberr path+name  (/etc/sendkafka.conf)\n"
@@ -782,7 +783,7 @@ int main (int argc, char **argv)
 		logmaxnum=logwritelocal=atoi(value);
 	}
 
-	while ((opt = getopt(argc, argv, "hb:c:d:")) != -1) {
+	while ((opt = getopt(argc, argv, "hb:c:d:p:t:l:s:m:n:o:")) != -1) {
 		switch (opt) {
 		case 'b':
 			strncpy(brokers, optarg, sizeof(brokers));
@@ -927,18 +928,18 @@ int main (int argc, char **argv)
 		}
 
   		if( global_listsize >=  listmaxsize )
-                {
-                     sleep(2);
-                }
+		{
+			 sleep(2);
+		}
 
-                inserthead(head,buf);
-                char *opbuf=NULL;
-                int len=0;
+		inserthead(head,buf);
+		char *opbuf=NULL;
+		int len=0;
 
-                if(NULL != (opbuf=getfirstdata(head)))
-                {   
-                    len=strlen(opbuf);
-                }
+		if(NULL != (opbuf=getfirstdata(head)))
+		{   
+			len=strlen(opbuf);
+		}
 
 		/* Random rk and partition */
 		rk = rand() % rkcount;
