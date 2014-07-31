@@ -140,12 +140,12 @@ off_t  getfilesize(char *pathname)
     struct stat buff;
     if(0!=access(pathname,F_OK))
     {
-	return -1;
+		return -1;
     }
     if(0==stat(pathname,&buff))
     {
 
-	return buff.st_size;
+		return buff.st_size;
     }
     else
     {
@@ -167,7 +167,7 @@ int getpathpos(char*pathname)
    {
       if(pathname[i]== '\\')
       {
-   	  pos=i;
+		pos=i;
       }
 
    }
@@ -198,9 +198,9 @@ int getfilenum(char* pathname)
         path[len]=c;
         path[len+1]='\0';
 	if(0 == access(path,F_OK))
-        {
-	     ++num;
-        }
+	{
+		++num;
+	}
   
     }
 
@@ -223,20 +223,20 @@ void newname(char *pathname , int num)
     
      if(0==num)
      {
- 	strncat(buf,"0",1);
-	rename(pathname,buf);
-	return;
+		strncat(buf,"0",1);
+		rename(pathname,buf);
+		return;
      }
 
      char c= ( (num==logmaxnum) ? (logmaxnum-2):(num)) + '0';
      memcpy(newbuf,buf,len+1);
      for(i=num-1;i>=0;--i,c=c-1)
      {
-	buf[len]=c-1;
-	buf[len+1]='\0';
-	newbuf[len]=c;
-        newbuf[len+1]='\0';
-	rename(buf,newbuf);
+		buf[len]=c-1;
+		buf[len+1]='\0';
+		newbuf[len]=c;
+		newbuf[len+1]='\0';
+		rename(buf,newbuf);
      }
 
      memset(buf,'\0',128);
@@ -259,15 +259,14 @@ int  logroate(char *pathname,int fd)
      {
          char buf[128]={0};
          strcpy(buf,pathname);
-	 int len=strlen(buf);	 
-	 int num=getfilenum(pathname);
+		 int len=strlen(buf);	 
+		 int num=getfilenum(pathname);
 
 	 if(num == logmaxnum)
 	 {
-		
 		strncat(buf,"-",2);
-                buf[len+1]=logmaxnum + '0'-1;
-                buf[len+2]='\0';
+		buf[len+1]=logmaxnum + '0'-1;
+		buf[len+2]='\0';
 		unlink(buf);
 	 }
 
@@ -275,7 +274,6 @@ int  logroate(char *pathname,int fd)
        
         newname(pathname,num); 
 	      
-
         int newfd=open(pathname,O_WRONLY|O_APPEND|O_CREAT,0666);
         assert(-1!=newfd);
         return newfd;
@@ -319,7 +317,7 @@ int liberrloglocal(int f)
      close(f);
      if(dup(fd) == -1)
      {
-	perror("dup is faill...");
+		perror("dup is faill...");
      }
 		
      return fd;
@@ -333,15 +331,18 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-        if(access(global_efliblogpath,F_OK)!=0)
-        {
-	     creat(global_efliblogpath,0666);
-        }
-        if(access(global_efliblogpath,W_OK)!=0)
-        {
-	     perror("open global_efliblogpath");
-	     exit(1);
-        }
+	
+	if(access(global_efliblogpath,F_OK)!=0)
+	{
+	 creat(global_efliblogpath,0666);
+	}
+	
+	if(access(global_efliblogpath,W_OK)!=0)
+	{
+	 perror("open global_efliblogpath");
+	 exit(1);
+	}
+	
 	int fd=open(global_efliblogpath,O_CREAT|O_WRONLY|O_APPEND,0666);
 	assert(-1!=fd);
 	char errbuf[1024]={0};
@@ -349,8 +350,8 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
 	level, (int)tv.tv_sec, (int)(tv.tv_usec / 1000),
 	fac, rk ? rk->rk_broker.name : "", buf);
 	
-        int newfd=logroate(global_efliblogpath,fd);
-        fd= newfd>0 ? newfd:fd;
+	int newfd=logroate(global_efliblogpath,fd);
+	fd= newfd>0 ? newfd:fd;
         
 	write(fd,errbuf,strlen(errbuf));
 
@@ -369,16 +370,18 @@ void skafkaerrloglocal(char *pathname,char*errinfo)
    
     if(access(pathname,F_OK)!=0)
     {
-         creat(pathname,0666);
+		creat(pathname,0666);
     }
+	
     if(access(pathname,W_OK)!=0)
     {
-   	 perror("open pathname");
-         exit(1);
+		perror("open pathname");
+		exit(1);
     }
 
     int fd=open(pathname,O_WRONLY|O_APPEND|O_CREAT,0666);
     assert(-1!=fd);
+	
     if(NULL!=errinfo)
     {
         int newfd=logroate(pathname,fd);
@@ -474,7 +477,6 @@ int write_log(int state,int level,char *info)
                replysyslog(LOG_LOCAL0,level,"SENDKAFKA: ",buf);
 	  }
 
-
           rd_kafka_set_logger(rd_kafka_log_syslog);
      }
 
@@ -562,6 +564,7 @@ void inserthead(nodeinfo *head,char*s)
 
         write_log(logwritelocal,LOG_CRIT,"malloc  faill...");    
    }
+   
    memcpy(ptmp->pdata,s,len);
    ptmp->next=head->next;
    head->next=ptmp;  
@@ -602,6 +605,7 @@ void listclean(nodeinfo *head)
          free(p2);
          p2=NULL;
     }   
+	
     head->next=NULL;
     global_listsize=0;
 }
@@ -739,8 +743,8 @@ int main (int argc, char **argv)
 	int i;
 	int opt;
 
-        nodeinfo *head;
-        listinit(&head);
+	nodeinfo *head;
+	listinit(&head);
 	topic = "syslog";
 
 	partition = 0;
@@ -760,7 +764,7 @@ int main (int argc, char **argv)
 		}
 	}
   
-        if (read_config("data_filelogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
+    if (read_config("data_filelogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
 		strcpy(global_dflogpath, value);
 		memset(value,'\0',1024);
 	}
@@ -781,6 +785,10 @@ int main (int argc, char **argv)
 
 	if (read_config("logmaxnum", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
 		logmaxnum=logwritelocal=atoi(value);
+	}
+	if (read_config("logmaxsize", value, sizeof(value),  "/etc/sendkafka.conf") > 0) {
+		
+		logmaxsize=atoi(value);
 	}
 
 	while ((opt = getopt(argc, argv, "hb:c:d:p:t:l:s:m:n:o:")) != -1) {
@@ -829,6 +837,10 @@ int main (int argc, char **argv)
 				
                                 logmaxnum=atoi(value);
 			}
+			if (read_config("logmaxsize", value, sizeof(value), optarg) > 0) {
+				
+                                logmaxsize=atoi(value);
+			}			
 			break;
 
                 case 'o':
@@ -880,10 +892,10 @@ int main (int argc, char **argv)
 	}
         
 	
-        write_log(logwritelocal,0,NULL);
+	write_log(logwritelocal,0,NULL);
 
-        lreadtol(head);
-        qreadtol(head);
+	lreadtol(head);
+	qreadtol(head);
 
 	signal(SIGINT, stop);
 	signal(SIGTERM, stop);
@@ -953,7 +965,7 @@ int main (int argc, char **argv)
 			ret = rd_kafka_produce(rks[rk], topic, partition, RD_KAFKA_OP_F_FREE, opbuf, len);
 			if (ret != 0) {
 				fprintf(stderr, "%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);
-        			char *buf=calloc(1,strlen(opbuf)+128);
+        		char *buf=calloc(1,strlen(opbuf)+128);
 				sprintf(buf,"%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);
 			 	write_log(logwritelocal,LOG_INFO,buf);    
 				free(buf);
@@ -961,11 +973,11 @@ int main (int argc, char **argv)
 			}
 		}
 
-                if(0==ret)
-                {
-                    delfirstnode(head);
-		    sendcnt++;
-                }
+		if(0==ret)
+		{
+			delfirstnode(head);
+			sendcnt++;
+		}
                 
 		if (sendcnt % 100000 == 0) {
 		     fprintf(stderr, "%s sendkafka[%d]: Sent %i messages to topic %s\n", getcurrenttime1(),getpid(), sendcnt, topic);
@@ -998,10 +1010,10 @@ int main (int argc, char **argv)
 		rd_kafka_destroy(rks[i]);
 	}
        
-        writefile(head);
-        listdestroy(head);
-       
-        kafkaqueuetof(rks,rkcount);
+	writefile(head);
+	listdestroy(head);
+   
+	kafkaqueuetof(rks,rkcount);
         
 	return 0;
 
