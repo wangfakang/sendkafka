@@ -108,21 +108,21 @@ void usage(const char * cmd)
 			"  -b <brokers>      Broker addresses (localhost:9092)\n"
 			"  -c <config>       config file (/etc/sendkafka.conf)\n"
 			"  -t <topic>        topic default rdfile (/etc/sendkafka.conf)\n"
-			"  -l <global_eflogpath> liberr path+name  (/etc/sendkafka.conf)\n"
-			"  -s <global_efslogpath> sendkafkaerr path+name  (/etc/sendkafka.conf)\n"
+			"  -l <global_efliblogpath> liberr path+name  (/etc/sendkafka.conf)\n"
+			"  -s <global_efsdkfklogpath> sendkafkaerr path+name  (/etc/sendkafka.conf)\n"
 			"  -d <global_dflogpath> list or queue data path+name  (/etc/sendkafka.conf)\n"
 			"  -m <listmaxsize>      list max size default 1M (/etc/sendkafka.conf)\n"
 			"  -n <logmaxnum>      log file num default 5 (/etc/sendkafka.conf)\n"
-			"  -o <logwriteinf>  logwriteinf default 0 ,if 0 write local other reresyslog(/etc/sendkafka.conf)\n"
+			"  -o <logwritelocal>  logwritelocal default 0 ,if 0 write local other reresyslog(/etc/sendkafka.conf)\n"
 			"\n"
 			"  Config Format:\n"
 			"  brokers = <host2[:port1][,host2[:port2]...]>\n"
 			"  topic = <topic>\n"
 			"  partitions = <partitions>\n"
-			"  daflogpath = <daflogpath>   path+name example: /var/log/test.txt\n"
-			"  erflogpath = <erflogpath>   path+name example: /var/log/test.txt\n"
-			"  erfslogpath = <erfslogpath>   path+name example: /var/log/test.txt\n"
-			"  logwrite = <logwrite>   default 0 means write log in local others rersyslog\n"
+			"  data_filelogpath = <daflogpath>   path+name example: /var/log/test.txt\n"
+			"  err_filelibrdkafkalogpath = <erflogpath>   path+name example: /var/log/test.txt\n"
+			"  err_filesendkafkalogpath = <err_fslogpath>   path+name example: /var/log/test.txt\n"
+			"  logwritelocal = <logwritelocal>   default 0 means write log in local others rersyslog\n"
 			"  logmaxnum = <logmaxnum>   default 5  , should 0--9\n"
 			"\n",
 		cmd);
@@ -287,9 +287,9 @@ int  logroate(char *pathname,int fd)
 
 
 /*
- *logwriteinf==0 default write log in file others in rsyslog
+ *logwritelocal==0 default write log in file others in rsyslog
  */
-static int logwriteinf=0;
+static int logwritelocal=0;
 
 /*
  *listmaxsize is list max size 
@@ -298,22 +298,22 @@ static int listmaxsize=1024*1024;
 
 /*
  *global_dflogpath means list or queue data save  path when main exit
- *global_eflogpath means librdkafka err log path
- *global_efslogpath means sendkafka err log path
+ *global_efliblogpath means librdkafka err log path
+ *global_efsdkfklogpath means sendkafka err log path
  */
-static char global_dflogpath[128]="/var/log/qorldlog.txt";
-static char global_eflogpath[128]="/var/log/errlog.txt";
-static char global_efslogpath[128]="/var/log/serrlog.txt";
+static char global_dflogpath[128]="/var/log/qorldatalog.txt";
+static char global_efliblogpath[128]="/var/log/errliblog.txt";
+static char global_efsdkfklogpath[128]="/var/log/errsdkafkalog.txt";
 
 
-/*function 把标准错误流里面的内容重定向到global_eflogpath中
+/*function 把标准错误流里面的内容重定向到global_efliblogpath中
  *主要是用于把lib中的err写入本地所配置的文件
  *
  * 目前未使用此函数
  */
 int liberrloglocal(int f)
 {
-     int fd=open(global_eflogpath,O_RDWR|O_APPEND|O_CREAT,0666);
+     int fd=open(global_efliblogpath,O_RDWR|O_APPEND|O_CREAT,0666);
      assert(-1 != fd);
      close(f);
      if(dup(fd) == -1)
@@ -324,7 +324,7 @@ int liberrloglocal(int f)
      return fd;
 }
 /*
- *function record librdkafka err at global_eflogpath
+ *function record librdkafka err at global_efliblogpath
  *
  */
 
@@ -332,23 +332,23 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-        if(access(global_eflogpath,F_OK)!=0)
+        if(access(global_efliblogpath,F_OK)!=0)
         {
-	     creat(global_eflogpath,0666);
+	     creat(global_efliblogpath,0666);
         }
-        if(access(global_eflogpath,W_OK)!=0)
+        if(access(global_efliblogpath,W_OK)!=0)
         {
-	     perror("open global_eflogpath");
+	     perror("open global_efliblogpath");
 	     exit(1);
         }
-	int fd=open(global_eflogpath,O_CREAT|O_WRONLY|O_APPEND,0666);
+	int fd=open(global_efliblogpath,O_CREAT|O_WRONLY|O_APPEND,0666);
 	assert(-1!=fd);
 	char errbuf[1024]={0};
 	sprintf(errbuf, "%%%i|%u.%03u|%s|%s| %s\n",
 	level, (int)tv.tv_sec, (int)(tv.tv_usec / 1000),
 	fac, rk ? rk->rk_broker.name : "", buf);
 	
-        int newfd=logroate(global_eflogpath,fd);
+        int newfd=logroate(global_efliblogpath,fd);
         fd= newfd>0 ? newfd:fd;
         
 	write(fd,errbuf,strlen(errbuf));
@@ -464,7 +464,7 @@ int write_log(int state,int level,char *info)
      {   
          rd_kafka_set_logger(libwrite);
          if(NULL!=info){
-                skafkaerrloglocal(global_efslogpath,buf);
+                skafkaerrloglocal(global_efsdkfklogpath,buf);
 	 }
      }
      else
@@ -491,7 +491,7 @@ void listinit(nodeinfo **phead)
    *phead = (nodeinfo*)malloc(sizeof(nodeinfo));
    if(*phead==NULL)
    {
-      write_log(logwriteinf,LOG_CRIT,"malloc  faill...");    
+      write_log(logwritelocal,LOG_CRIT,"malloc  faill...");    
    }
    (*phead)->next=NULL;
    (*phead)->pdata=NULL;
@@ -551,7 +551,7 @@ void inserthead(nodeinfo *head,char*s)
    ptmp=(nodeinfo*)malloc(sizeof(nodeinfo));
    if(NULL==ptmp)
    {    
-        write_log(logwriteinf,LOG_CRIT,"malloc  faill...");    
+        write_log(logwritelocal,LOG_CRIT,"malloc  faill...");    
    }
 
    ptmp->pdata=(char*)malloc(len+2);
@@ -559,7 +559,7 @@ void inserthead(nodeinfo *head,char*s)
    if(NULL==ptmp->pdata)
    {
 
-        write_log(logwriteinf,LOG_CRIT,"malloc  faill...");    
+        write_log(logwritelocal,LOG_CRIT,"malloc  faill...");    
    }
    memcpy(ptmp->pdata,s,len);
    ptmp->next=head->next;
@@ -759,27 +759,27 @@ int main (int argc, char **argv)
 		}
 	}
   
-        if (read_config("daflogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
+        if (read_config("data_filelogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
 		strcpy(global_dflogpath, value);
 		memset(value,'\0',1024);
 	}
-	if (read_config("erflogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
-		strcpy(global_eflogpath, value);
+	if (read_config("err_filelibrdkafkalogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
+		strcpy(global_efliblogpath, value);
 		memset(value,'\0',1024);
 	}
-	if (read_config("erfslogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
-		strcpy(global_efslogpath, value);
+	if (read_config("err_filesendkafkalogpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
+		strcpy(global_efsdkfklogpath, value);
 		 memset(value,'\0',1024);
 	}
-	if (read_config("logwrite", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
-		logwriteinf=atoi(value);
+	if (read_config("logwritelocal", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
+		logwritelocal=atoi(value);
 	}
 	if (read_config("listmaxsize", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
-		listmaxsize=logwriteinf=atoi(value);
+		listmaxsize=logwritelocal=atoi(value);
 	}
 
 	if (read_config("logmaxnum", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
-		logmaxnum=logwriteinf=atoi(value);
+		logmaxnum=logwritelocal=atoi(value);
 	}
 
 	while ((opt = getopt(argc, argv, "hb:c:d:")) != -1) {
@@ -804,25 +804,25 @@ int main (int argc, char **argv)
                                 memset(value,'\0',1024);
 			}
                         
-			if (read_config("daflogpath", value, sizeof(value), optarg) > 0) {
+			if (read_config("data_filelogpath", value, sizeof(value), optarg) > 0) {
 				
 				strcpy(global_dflogpath, value);
                                 memset(value,'\0',1024);
 			}
-			if (read_config("erflogpath", value, sizeof(value), optarg) > 0) {
+			if (read_config("err_filelibrdkafkalogpath", value, sizeof(value), optarg) > 0) {
 				
-				strcpy(global_eflogpath, value);
+				strcpy(global_efliblogpath, value);
                                 memset(value,'\0',1024);
 			}
-			if (read_config("erfslogpath", value, sizeof(value), optarg) > 0) {
+			if (read_config("err_filesendkafkalogpath", value, sizeof(value), optarg) > 0) {
 				
-				strcpy(global_efslogpath, value);
+				strcpy(global_efsdkfklogpath, value);
                                 memset(value,'\0',1024);
 			}
                         
-			if (read_config("logwrite", value, sizeof(value), optarg) > 0) {
+			if (read_config("logwritelocal", value, sizeof(value), optarg) > 0) {
 				
-                                logwriteinf=atoi(value);
+                                logwritelocal=atoi(value);
 			}
 			if (read_config("logmaxnum", value, sizeof(value), optarg) > 0) {
 				
@@ -832,7 +832,7 @@ int main (int argc, char **argv)
 
                 case 'o':
                         if(NULL!=optarg){
-                                logwriteinf=atoi(optarg);
+                                logwritelocal=atoi(optarg);
 			}
 			break;    
 		case 't':
@@ -847,13 +847,13 @@ int main (int argc, char **argv)
 			break;
 		case 'l':
 			if(NULL!=optarg){
-				strcpy(global_eflogpath, optarg);
+				strcpy(global_efliblogpath, optarg);
 			}
 			break;
 
 		case 's':
 			if(NULL!=optarg){
-				strcpy(global_efslogpath, optarg);
+				strcpy(global_efsdkfklogpath, optarg);
 			}
 			break;
 		case 'd':
@@ -879,7 +879,7 @@ int main (int argc, char **argv)
 	}
         
 	
-        write_log(logwriteinf,0,NULL);
+        write_log(logwritelocal,0,NULL);
 
         lreadtol(head);
         qreadtol(head);
@@ -912,7 +912,7 @@ int main (int argc, char **argv)
                         strcpy(buf,getcurrenttime1());
                         strncat(buf,"kafka_new producer is fail...",29);                   
 			perror(buf);
-        		write_log(logwriteinf,LOG_CRIT,buf);    
+        		write_log(logwritelocal,LOG_CRIT,buf);    
 			run=0;
 
 		}
@@ -954,7 +954,7 @@ int main (int argc, char **argv)
 				fprintf(stderr, "%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);
         			char *buf=calloc(1,strlen(opbuf)+128);
 				sprintf(buf,"%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);
-			 	write_log(logwriteinf,LOG_INFO,buf);    
+			 	write_log(logwritelocal,LOG_INFO,buf);    
 				free(buf);
 				buf=NULL;
 			}
@@ -970,7 +970,7 @@ int main (int argc, char **argv)
 		     fprintf(stderr, "%s sendkafka[%d]: Sent %i messages to topic %s\n", getcurrenttime1(),getpid(), sendcnt, topic);
 
 		     char *buf=calloc(1,strlen(topic)+128);
-		     sprintf(buf,"%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);                                write_log(logwriteinf,LOG_INFO,buf);    
+		     sprintf(buf,"%s sendkafka[%d]: failed: %s\n",getcurrenttime1(),getpid(), opbuf);                                write_log(logwritelocal,LOG_INFO,buf);    
 		     free(buf);
 		     buf=NULL;
 		}
