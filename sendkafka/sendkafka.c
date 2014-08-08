@@ -243,9 +243,9 @@ int getfilenum(char* pathname)
         path[len]=c;
         path[len+1]='\0';
 	if(0 == access(path,F_OK))
-        {
-	     ++num;
-        }
+	{
+		++num;
+	}
   
     }
 
@@ -269,20 +269,20 @@ void newname(char *pathname , int num)
     
      if(0==num)
      {
- 	strncat(buf,"0",1);
-	rename(pathname,buf);
-	return;
+		strncat(buf,"0",1);
+		rename(pathname,buf);
+		return;
      }
 
      char c= ( (num==global_logmaxnum) ? (global_logmaxnum-2):(num)) + '0';
      memcpy(newbuf,buf,len+1);
      for(i=num-1;i>=0;--i,c=c-1)
      {
-	buf[len]=c-1;
-	buf[len+1]='\0';
-	newbuf[len]=c;
+		buf[len]=c-1;
+		buf[len+1]='\0';
+		newbuf[len]=c;
         newbuf[len+1]='\0';
-	rename(buf,newbuf);
+		rename(buf,newbuf);
      }
 
      memset(buf,'\0',128);
@@ -306,15 +306,15 @@ int  logroate(char *pathname,int fd)
      {
          char buf[128]={0};
          strcpy(buf,pathname);
-	 int len=strlen(buf);	 
-	 int num=getfilenum(pathname);
+		 int len=strlen(buf);	 
+		 int num=getfilenum(pathname);
 
 	 if(num == global_logmaxnum)
 	 {
 		
 		strncat(buf,"-",2);
-                buf[len+1]=global_logmaxnum + '0'-1;
-                buf[len+2]='\0';
+		buf[len+1]=global_logmaxnum + '0'-1;
+		buf[len+2]='\0';
 		unlink(buf);
 	 }
 
@@ -396,21 +396,21 @@ void controlquesizelog(rd_kafka_t **rks,int num,char *pathname)
     		}
 
    		if(access(pathname,W_OK)!=0)
-    		{
-                      char buf[100]={0};
-                      sprintf(buf,"%d",__LINE__ -3);
-                      strncat(buf,"  line open  pathname  no permit...",strlen("  line open  pathname  no permit..."));
-                      write_log(global_logwritelocal,LOG_CRIT,buf);
-   	              perror(buf);
-                      exit(1);
-    		}
+		{
+			  char buf[100]={0};
+			  sprintf(buf,"%d",__LINE__ -3);
+			  strncat(buf,"  line open  pathname  no permit...",strlen("  line open  pathname  no permit..."));
+			  write_log(global_logwritelocal,LOG_CRIT,buf);
+			  perror(buf);
+			  exit(1);
+		}
 
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
-    		int fd=open(pathname,O_WRONLY|O_APPEND|O_CREAT,0666);
+    	int fd=open(pathname,O_WRONLY|O_APPEND|O_CREAT,0666);
 		char timebuf[50]={0};
 		strncpy(timebuf,getcurrenttime(),strlen(getcurrenttime()));
-	        timebuf[strlen(timebuf)-1]='\0';
+	    timebuf[strlen(timebuf)-1]='\0';
 
 		for(;i<num;++i)
 		{
@@ -421,10 +421,10 @@ void controlquesizelog(rd_kafka_t **rks,int num,char *pathname)
 			memset(buf,'\0',128);
 		}
 
-                int newfd=logroate(pathname,fd);
-                fd= newfd>0 ? newfd:fd;
+		int newfd=logroate(pathname,fd);
+		fd= newfd>0 ? newfd:fd;
 		
-        	close(fd);
+        close(fd);
 	}
 }
 
@@ -462,22 +462,22 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
 
 	int fd=open(global_efliblogpath,O_CREAT|O_WRONLY|O_APPEND,0666);
 
-        if(fd == -1)
-        {
-            char buf[100]={0};
-            sprintf(buf,"%d",__LINE__ -4);
-            strncat(buf,"  line open global_efliblogpath  fail...",strlen("  line open global_efliblogpath  fail..."));
-            perror(buf);
-            exit(1);
-        }
+	if(fd == -1)
+	{
+		char buf[100]={0};
+		sprintf(buf,"%d",__LINE__ -4);
+		strncat(buf,"  line open global_efliblogpath  fail...",strlen("  line open global_efliblogpath  fail..."));
+		perror(buf);
+		exit(1);
+	}
 
 	char errbuf[1024]={0};
 	sprintf(errbuf, "%%%i|%u.%03u|%s|%s| %s\n",
 	level, (int)tv.tv_sec, (int)(tv.tv_usec / 1000),
 	fac, rk ? rk->rk_broker.name : "", buf);
 	
-        int newfd=logroate(global_efliblogpath,fd);
-        fd= newfd>0 ? newfd:fd;
+	int newfd=logroate(global_efliblogpath,fd);
+	fd= newfd>0 ? newfd:fd;
         
 	write(fd,errbuf,strlen(errbuf));
 
@@ -665,7 +665,7 @@ void savelocaldatatofile(char *opbuf)
  */
 int  producter(rd_kafka_t **rks,char*topic,int partitions,int tag,char*buf,int len,int rkcount)
 {
-        int i=0;
+    int i=0;
 	int partition=0;
 	int rk=0;
 	int ret=0;
@@ -673,26 +673,26 @@ int  producter(rd_kafka_t **rks,char*topic,int partitions,int tag,char*buf,int l
 
         for(;i<rkcount;++i,++rk)
         {
-		rk%=rkcount;
-		partition=rand()%partitions;
-                ret = rd_kafka_produce(rks[rk],topic,partition,tag,buf,len);
-                if(ret ==0 )
-                {
-                     return 0;
-                }
-                else
-                {
-                     char timebuf[50]={0};
-                     strcpy(timebuf,getcurrenttime());
-                     timebuf[strlen(timebuf)-1]='\0';
-                     fprintf(stderr, "%s sendkafka[%d]: failed: %s\n",timebuf,getpid(), buf);
-                     char *buf=calloc(1,strlen(buf)+128);
-                     sprintf(buf,"%s sendkafka[%d]: failed: %s\n",timebuf,getpid(), buf);
-                     write_log(global_logwritelocal,LOG_INFO,buf);
-                     free(buf);
-                     buf=NULL;
-                     continue;
-                }
+				rk%=rkcount;
+				partition=rand()%partitions;
+				ret = rd_kafka_produce(rks[rk],topic,partition,tag,buf,len);
+				if(ret ==0 )
+				{
+					 return 0;
+				}
+				else
+				{
+					 char timebuf[50]={0};
+					 strcpy(timebuf,getcurrenttime());
+					 timebuf[strlen(timebuf)-1]='\0';
+					 fprintf(stderr, "%s sendkafka[%d]: failed: %s\n",timebuf,getpid(), buf);
+					 char *buf=calloc(1,strlen(buf)+128);
+					 sprintf(buf,"%s sendkafka[%d]: failed: %s\n",timebuf,getpid(), buf);
+					 write_log(global_logwritelocal,LOG_INFO,buf);
+					 free(buf);
+					 buf=NULL;
+					 continue;
+				}
         }
 
         return 1;
@@ -727,7 +727,7 @@ void productercircle(rd_kafka_t * *rks,char*topic,int partitions,int tag,char*op
                         write_log(global_logwritelocal,LOG_INFO,buf);
                         free(buf);
                         buf=NULL;
-			savelocaldatatofile(opbuf);
+						savelocaldatatofile(opbuf);
                         kafkaqueuetof(rks,rkcount);
                         exit(1);
                 }
@@ -750,7 +750,7 @@ int main (int argc, char **argv)
 	int  	    partitions = 4;
 	int  	    opt;
 	int  	    len=0;
-        char 	    *opbuf=NULL;
+    char 	    *opbuf=NULL;
 
         
 	if (read_config("brokers", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
@@ -936,11 +936,11 @@ int main (int argc, char **argv)
 				rks[i] = NULL;
 			}
 
-                        strcpy(buf,getcurrenttime());
+            strcpy(buf,getcurrenttime());
 			buf[strlen(buf)-1]='\0';
-                        strncat(buf,"kafka_new producer is fail...",29);                   
+            strncat(buf,"kafka_new producer is fail...",29);                   
 			perror(buf);
-        		write_log(global_logwritelocal,LOG_CRIT,buf);    
+            write_log(global_logwritelocal,LOG_CRIT,buf);    
 			global_run=0;
 
 		}
@@ -949,7 +949,7 @@ int main (int argc, char **argv)
 
 	srand(time(NULL));
 	char *eptr=NULL;
-        int state=0;
+    int state=0;
 	while ( global_run ) 
 	{
 		if(state)
@@ -959,35 +959,35 @@ int main (int argc, char **argv)
 		        	global_run=0;
 			        break;
 			}
-		        ++sendcnt;	
+		    ++sendcnt;	
 		   	opbuf=strdup(buf);
 			len=strlen(opbuf);
 			productercircle(rks,topic,partitions,RD_KAFKA_OP_F_FREE,opbuf,len,rkcount);
 			
 		}
-                else
+        else
 		{
 			FILE *fp=NULL;
 			opbuf=NULL;
 			if(access(global_dflogpath,F_OK)==0)
 			{
-		              fp=fopen(global_dflogpath,"r");
+		          fp=fopen(global_dflogpath,"r");
 			      if(fp==NULL)
 			      {
-				 char buf[100]={0};
+					 char buf[100]={0};
         			 sprintf(buf,"%d",__LINE__ -4);
         			 strncat(buf,"  line open global_dflogpath  fail...",strlen("  line open global_dflogpath  fail..."));
         			 write_log(global_logwritelocal,LOG_CRIT,buf);
-				 perror(buf);
+				     perror(buf);
 				  
-				 exit(1);
+					 exit(1);
   			      }
 			      while(fgets(buf,sizeof(buf),fp))
 			      {
-				   ++sendcnt;
-				   opbuf=strdup(buf);
-				   len=strlen(opbuf);
-				   productercircle(rks,topic,partitions,RD_KAFKA_OP_F_FREE,opbuf,len,rkcount);
+					   ++sendcnt;
+					   opbuf=strdup(buf);
+					   len=strlen(opbuf);
+					   productercircle(rks,topic,partitions,RD_KAFKA_OP_F_FREE,opbuf,len,rkcount);
 			      }
 			
    			     if(getfilesize(global_dflogpath)>0)
@@ -995,7 +995,8 @@ int main (int argc, char **argv)
          			   unlink(global_dflogpath);
   			     }
 		         }
-			 state=1;
+				 
+				 state=1;
 		         continue;
         	}
 
