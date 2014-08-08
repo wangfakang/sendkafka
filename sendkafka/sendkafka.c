@@ -83,7 +83,7 @@ void usage(const char * cmd);
 static char global_dflogpath[1024]="/var/log/sendkafka/queue.dat";
 static char global_efliblogpath[1024]="/var/log/sendkafka/error.log";
 static char global_efsdkfklogpath[1024]="/var/log/sendkafka/errsdkafka.log";
-static char global_monitorlogpath[1024]="/var/log/sendkafka/stats.log";
+static char global_monitorlogpath[1024]="/var/log/sendkafka/monitor.log";
 static int global_logwritelocal=0;
 static int global_logmaxnum=5;
 static int global_run = 1;
@@ -125,8 +125,6 @@ int read_config(const char * key, char * value, int size, const char * file)
 	{
 		char buf[50]="key,value,size,file is null or zero";
 		perror(buf);
-
-
       		exit(1);
 
 	}
@@ -333,7 +331,7 @@ int  logroate(char *pathname,int fd)
             sprintf(buf,"%d",__LINE__ -4);
             strncat(buf,"  line open global_efliblogpath  fail...",strlen("  line open global_efliblogpath  fail..."));
             write_log(global_logwritelocal,LOG_CRIT,buf);
-            perror("open pathname");
+            perror(buf);
             exit(1);
         }
 
@@ -392,7 +390,7 @@ void controlquesizelog(rd_kafka_t **rks,int num,char *pathname)
                            sprintf(buf,"%d",__LINE__ -3);
                            strncat(buf,"  line pathname  error...",strlen("  line pathname  error..."));
                            write_log(global_logwritelocal,LOG_CRIT,buf);
-                           perror("pathname  error");
+                           perror(buf);
                            exit(1);
                     }
     		}
@@ -403,7 +401,7 @@ void controlquesizelog(rd_kafka_t **rks,int num,char *pathname)
                       sprintf(buf,"%d",__LINE__ -3);
                       strncat(buf,"  line open  pathname  no permit...",strlen("  line open  pathname  no permit..."));
                       write_log(global_logwritelocal,LOG_CRIT,buf);
-   	              perror("open pathname");
+   	              perror(buf);
                       exit(1);
     		}
 
@@ -457,8 +455,7 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
              char buf[100]={0};
              sprintf(buf,"%d",__LINE__ -3);
              strncat(buf,"  line global_efliblogpath  error...",strlen("  line global_efliblogpath  error..."));
-             write_log(global_logwritelocal,LOG_CRIT,buf);
-             perror("open global_efliblogpath");
+             perror(buf);
              exit(1);
 
         }
@@ -470,8 +467,7 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
             char buf[100]={0};
             sprintf(buf,"%d",__LINE__ -4);
             strncat(buf,"  line open global_efliblogpath  fail...",strlen("  line open global_efliblogpath  fail..."));
-            write_log(global_logwritelocal,LOG_CRIT,buf);
-            perror("open pathname");
+            perror(buf);
             exit(1);
         }
 
@@ -498,7 +494,6 @@ void libwrite(const rd_kafka_t *rk, int level,const char *fac, const char *buf)
 void sdkafkaerrloglocal(char *pathname,char*errinfo)
 {
    
-
      if(access(pathname,F_OK)!=0)
      {
          if(creat(pathname,0666) == -1)
@@ -506,8 +501,7 @@ void sdkafkaerrloglocal(char *pathname,char*errinfo)
                 char buf[100]={0};
                 sprintf(buf,"%d",__LINE__ -3);
                 strncat(buf,"  line pathname  error...",strlen("  line pathname  error..."));
-                write_log(global_logwritelocal,LOG_CRIT,buf);
-                perror("pathname  error");
+                perror(buf);
                 exit(1);
          }
     }
@@ -517,8 +511,7 @@ void sdkafkaerrloglocal(char *pathname,char*errinfo)
         char buf[100]={0};
         sprintf(buf,"%d",__LINE__ -3);
         strncat(buf,"  line pathname  no permit...",strlen("  line pathname  no permit..."));
-        write_log(global_logwritelocal,LOG_CRIT,buf);
-        perror("open pathname");
+        perror(buf);
         exit(1);
     }
     int fd=open(pathname,O_WRONLY|O_APPEND|O_CREAT,0666);
@@ -528,8 +521,7 @@ void sdkafkaerrloglocal(char *pathname,char*errinfo)
         char buf[100]={0};
         sprintf(buf,"%d",__LINE__ -4);
         strncat(buf,"  line open pathname  fail...",strlen("  line open pathname  fail..."));
-        write_log(global_logwritelocal,LOG_CRIT,buf);
-        perror("open pathname");
+        perror(buf);
         exit(1);
     }
 
@@ -617,7 +609,7 @@ void kafkaqueuetof(rd_kafka_t**rks,int rkcount)
         sprintf(buf,"%d",__LINE__ -4);
         strncat(buf,"  line open global_dflogpath  fail...",strlen("  line open global_dflogpath  fail..."));
         write_log(global_logwritelocal,LOG_CRIT,buf);
-        perror("open global_dflogpath");
+        perror(buf);
         exit(1);
    }
 
@@ -656,7 +648,7 @@ void savelocaldatatofile(char *opbuf)
         sprintf(buf,"%d",__LINE__ -4);
         strncat(buf,"  line open global_dflogpath  fail...",strlen("  line open global_dflogpath  fail..."));
         write_log(global_logwritelocal,LOG_CRIT,buf);
-        perror("open global_dflogpath");
+        perror(buf);
         exit(1);
      }
      
@@ -788,14 +780,10 @@ int main (int argc, char **argv)
 		strcpy(global_efsdkfklogpath, value);
 		 memset(value,'\0',1024);
 	}
-	if (read_config("monitor_logpath", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
-		strcpy(global_monitorlogpath, value);
-		memset(value,'\0',1024);
-	}
+
 	if (read_config("global_logwritelocal", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
 		global_logwritelocal=atoi(value);
 	}
-
 	if (read_config("global_logmaxnum", value, sizeof(value), "/etc/sendkafka.conf") > 0) {
 		global_logmaxnum=atoi(value);
 	}
@@ -808,7 +796,6 @@ int main (int argc, char **argv)
 		strcpy(global_monitorlogpath, value);
 		memset(value,'\0',1024);
 	}
-
 	while ((opt = getopt(argc, argv, "hb:c:d:p:t:o:m:n:l:s:x:")) != -1) {
 		switch (opt) {
 		case 'b':
@@ -931,9 +918,7 @@ int main (int argc, char **argv)
 	signal(SIGTERM, stop);
 	// see: https://github.com/edenhill/librdkafka/issues/2
 	signal(SIGPIPE, SIG_IGN);
-
 	signal(SIGHUP,stop); 
-	
        /* Producer
 	 */
 	char buf[4096];
@@ -993,7 +978,7 @@ int main (int argc, char **argv)
         			 sprintf(buf,"%d",__LINE__ -4);
         			 strncat(buf,"  line open global_dflogpath  fail...",strlen("  line open global_dflogpath  fail..."));
         			 write_log(global_logwritelocal,LOG_CRIT,buf);
-				 perror("open global_dflogpath");
+				 perror(buf);
 				  
 				 exit(1);
   			      }
@@ -1005,10 +990,10 @@ int main (int argc, char **argv)
 				   productercircle(rks,topic,partitions,RD_KAFKA_OP_F_FREE,opbuf,len,rkcount);
 			      }
 			
-   			      if(getfilesize(global_dflogpath)>0)
-   			      {
+   			     if(getfilesize(global_dflogpath)>0)
+   			     {
          			   unlink(global_dflogpath);
-  			      }
+  			     }
 		         }
 			 state=1;
 		         continue;
