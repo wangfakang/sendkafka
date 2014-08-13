@@ -48,7 +48,7 @@
 #define RD_POLL_NOWAIT     0
 #define RD_KAFKA_TOPIC_MAXLEN  256
 
-char* getcurrenttime();
+char* getcurenttime();
 typedef enum {
 	RD_KAFKA_PRODUCER,
 	RD_KAFKA_CONSUMER,

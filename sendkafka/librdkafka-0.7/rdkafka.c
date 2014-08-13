@@ -182,6 +182,7 @@ static void rd_kafka_log (const rd_kafka_t *rk, int level,
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
+	strcpy(buf,getcurenttime());
 	rd_kafka_log_cb(rk, level, fac, buf);
 }
 
@@ -354,8 +355,8 @@ int rd_kafka_offset_store (rd_kafka_t *rk, uint64_t offset) {
  * Locality: Kafka thread
  */
 
-//  The getcurrenttime for add time of log 	
-char  * getcurrenttime()
+//  The getcurenttime for add time of log 	
+char  * getcurenttime()
 {
      time_t t=time(NULL);
 
@@ -368,9 +369,9 @@ static int rd_kafka_connect (rd_kafka_t *rk) {
 	if ((rk->rk_broker.s = socket(sinx->sinx_family,
 				      SOCK_STREAM, IPPROTO_TCP)) == -1) {
 		rd_kafka_fail(rk,
-			      "Failed to create %s socket: %s  %s",
+			      "Failed to create %s socket: %s",
 			      rd_family2str(sinx->sinx_family),
-			      strerror(errno),getcurrenttime());
+			      strerror(errno));
 		return -1;
 	}
 
@@ -384,15 +385,15 @@ static int rd_kafka_connect (rd_kafka_t *rk) {
 			rd_kafka_fail(rk, NULL);
 		else
 			rd_kafka_fail(rk,
-				      "Failed to connect to broker at %s: %s  %s",
+				      "Failed to connect to broker at %s|%s",
 				      rd_sockaddr2str(sinx,
 						      RD_SOCKADDR2STR_F_NICE),
-				      strerror(errno),getcurrenttime());
+				      strerror(errno));
 		return -1;
 	}
 
-	rd_kafka_dbg(rk, "CONNECTED", "connected to %s  %s",
-		     rd_sockaddr2str(sinx, RD_SOCKADDR2STR_F_NICE),getcurrenttime());
+	rd_kafka_dbg(rk, "CONNECTED", "connected to %s|",
+		     rd_sockaddr2str(sinx, RD_SOCKADDR2STR_F_NICE));
 
 	rd_kafka_set_state(rk, RD_KAFKA_STATE_UP);
 	rk->rk_err.err = 0;
@@ -418,8 +419,11 @@ static int rd_kafka_send (rd_kafka_t *rk, const struct msghdr *msg) {
 
 	r = sendmsg(rk->rk_broker.s, msg, 0);
 	if (r == -1) {
-		rd_kafka_fail(rk, "Send failed: %s", strerror(errno));
+		rd_kafka_dbg(rk, "Send failed: %s|", strerror(errno));
 		return -1;
+	} else {
+        
+		rd_kafka_dbg(rk, "Send succeed to"," ");
 	}
 
 	rk->rk_broker.stats.tx_bytes += r;
