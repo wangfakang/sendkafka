@@ -423,7 +423,7 @@ static int rd_kafka_send (rd_kafka_t *rk, const struct msghdr *msg) {
 		return -1;
 	} else {
         
-		rd_kafka_dbg(rk, "Send succeed to"," ");
+		//rd_kafka_dbg(rk, "Send succeed to"," ");
 	}
 
 	rk->rk_broker.stats.tx_bytes += r;
