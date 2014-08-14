@@ -419,7 +419,7 @@ static int rd_kafka_send (rd_kafka_t *rk, const struct msghdr *msg) {
 
 	r = sendmsg(rk->rk_broker.s, msg, 0);
 	if (r == -1) {
-		rd_kafka_dbg(rk, "Send failed: %s|", strerror(errno));
+		rd_kafka_fail(rk, "Send failed: %s|", strerror(errno));
 		return -1;
 	} else {
         
