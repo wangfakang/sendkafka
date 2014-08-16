@@ -49,65 +49,63 @@
  */
 char *getcurrenttime();
 int read_config(const char *key, char *value, int size, const char *file);
-void libwrite(const rd_kafka_t * rk, int level, const char *fac,
+void save_liberr_tolocal(const rd_kafka_t * rk, int level, const char *fac,
 	      const char *buf);
-void sdkafkaerrloglocal(char *pathname, char *errinfo);
-void controlquesizelog(rd_kafka_t ** rks, int num, char *pathname);
-int replysyslog(int facility, int level, char *markname, char *loginfo);
-int write_log(int state, int level, char *info);
-int getfilenum(char *pathname);
-off_t getfilesize(char *pathname);
-void newname(char *pathname, int num);
-int logroate(char *pathname, int fd);
+void save_snderr_tolocal(char *pathname, char *errinfo);
+void check_queuedata_size(rd_kafka_t ** rks, int num, char *pathname);
+int save_log_torsyslog(int facility, int level, char *markname, char *loginfo);
+int save_err_tofile(int state, int level, char *info);
+int get_file_num(char *pathname);
+off_t get_file_size(char *pathname);
+void rename_file(char *pathname, int num);
+int rotate_logs(char *pathname, int fd);
 extern void rd_kafka_set_logger(void (*func)
 				 (const rd_kafka_t * rk, int level,
 				  const char *fac, const char *buf));
-void productercircle(rd_kafka_t * *rks, char *topic, int partitions, int tag,
+int  roate_send_toqueue(rd_kafka_t * *rks, char *topic, int partitions, int tag,
 		     char *opbuf, int len, int rkcount);
-int producter(rd_kafka_t ** rks, char *topic, int partitions, int tag,
+void producer(rd_kafka_t ** rks, char *topic, int partitions, int tag,
 	      char *buf, int len, int rkcount);
-void kafkaqueuetof(rd_kafka_t ** rks, int rkcount);
-void savelocaldatatofile(char *opbuf);
+void save_queuedata_tofile(rd_kafka_t ** rks, int rkcount);
+void save_snddata_tofile(char *opbuf);
 static void stop(int sig);
 void usage(const char *cmd);
 
 /*
- *global_dflogpath means list or queue data save  path when main exit
- *global_efliblogpath means librdkafka err log path
- *global_efsdkfklogpath means sendkafka err log path
- *global_logwritelocal==0 default write log in file others in rsyslog
- *global_logmaxnum is means errlog max num
- *global_run is means run tages
- *global_logmaxsize is means errlog max size
- *monitortime is very 10 senconds will run mointorfunction
+ * g_queue_data_filepath means librdkafka queue data save  path when main exit
+ * g_error_librdkfk_logpath means librdkafka err log path
+ * g_error_sdkfk_logpath means sendkafka err log path
+ * g_logsavelocal_tag==0 default write log in file others in rsyslog
+ * g_logfilenum_max is means errlog max num
+ * g_run_tag is means run tages ,if 0 will exit, others run
+ * g_logfilesize_max is means errlog max size
+ * g_monitor_period is default  very 10 senconds will run mointorfunction
  */
-static char global_dflogpath[1024] = "/var/log/sendkafka/queue.dat";
-static char global_efliblogpath[1024] = "/var/log/sendkafka/error.log";
-static char global_efsdkfklogpath[1024] = "/var/log/sendkafka/errsdkafka.log";
-static char global_monitorlogpath[1024] = "/var/log/sendkafka/monitor.log";
-static int global_logwritelocal = 0;
-static int global_logmaxnum = 5;
-static int global_run = 1;
-static off_t global_logmaxsize = 1024 * 1024;
-
-#define monitortime  10
+static char  g_queue_data_filepath[1024] = "/var/log/sendkafka/queue.dat";
+static char  g_error_librdkfk_logpath[1024] = "/var/log/sendkafka/error.log";
+static char  g_error_sdkfk_logpath[1024] = "/var/log/sendkafka/errsdkafka.log";
+static char  g_monitor_qusizelogpath[1024] = "/var/log/sendkafka/monitor.log";
+static int   g_logsavelocal_tag = 0;
+static int   g_logfilenum_max = 5;
+static int   g_run_tag = 1;
+static off_t g_logfilesize_max = 1024 * 1024;
+static int   g_monitor_period = 10;
 
 /*
- *function signal function,if signal ,it will
- *make global_run = 0 and while stop as will
- *as
+ * function signal function,if signal ,it will
+ * make g_run_tag = 0 and while stop as will
+ * as
  */
 static void stop(int sig)
 {
-	global_run = 0;
-	printf("signal   fun   start...\n");
+	g_run_tag = 0;
 }
 
 /*
- *function read usr configure file,example 
- *if broker = "test" then key is broker,value 
- *is "test" ,if read valid value will return not
- *zero else return zero 
+ * function read usr configure file,example 
+ * if broker = "test" then key is broker,value 
+ * is "test" ,if read valid value will return not
+ * zero else return zero 
  */
 int read_config(const char *key, char *value, int size, const char *file)
 {
@@ -154,6 +152,7 @@ int read_config(const char *key, char *value, int size, const char *file)
 			found = 1;
 			break;
 		}
+		if(NULL!=fp)
 		fclose(fp);
 		fp = NULL;
 	}
@@ -166,8 +165,8 @@ int read_config(const char *key, char *value, int size, const char *file)
 }
 
 /*
- *function show some help info for usr when the 
- *usr not expertly
+ * function show some help info for usr when the 
+ * usr not expertly
  *
  */
 void usage(const char *cmd)
@@ -179,30 +178,31 @@ void usage(const char *cmd)
 		"  -b <brokers>      Broker addresses (localhost:9092)\n"
 		"  -c <config>       config file (/etc/sendkafka.conf)\n"
 		"  -t <topic>        topic default rdfile (/etc/sendkafka.conf)\n"
-		"  -l <global_efliblogpath> liberr path+name  (/etc/sendkafka.conf)\n"
-		"  -s <global_efsdkfklogpath> sendkafkaerr path+name  (/etc/sendkafka.conf)\n"
-		"  -d <global_dflogpath> queue data path+name  (/etc/sendkafka.conf)\n"
-		"  -x <global_monitorlogpath> monitor queue size file path+name  (/etc/sendkafka.conf)\n"
+		"  -l <g_error_librdkfk_logpath> liberr path+name  (/etc/sendkafka.conf)\n"
+		"  -s <g_error_sdkfk_logpath> sendkafkaerr path+name  (/etc/sendkafka.conf)\n"
+		"  -d <g_queue_data_filepath> queue data path+name  (/etc/sendkafka.conf)\n"
+		"  -x <g_monitor_qusizelogpath> monitor queue size file path+name  (/etc/sendkafka.conf)\n"
 		"  -m <logmaxsize>      log max size default 124k (/etc/sendkafka.conf)\n"
-		"  -n <global_logmaxnum>      log file num default 5 (/etc/sendkafka.conf)\n"
-		"  -o <global_logwritelocal>  global_logwritelocal default 0 ,if 0 write local other reresyslog(/etc/sendkafka.conf)\n"
+		"  -n <g_logfilenum_max>      log file num default 5 (/etc/sendkafka.conf)\n"
+		"  -r <g_monitor_period>      check queue size period default 10 s (/etc/sendkafka.conf)\n"
+		"  -o <g_logsavelocal_tag>  g_logsavelocal_tag default 0 ,if 0 write local, other reresyslog(/etc/sendkafka.conf)\n"
 		"\n" "  Config Format:\n"
-		"  brokers = <host2[:port1][,host2[:port2]...]>\n"
-		"  topic = <topic>\n" "  partitions = <partitions>\n"
-		"  data_filelogpath = <daflogpath>   path+name example: /var/log/test.txt\n"
-		"  err_filelibrdkafkalogpath = <erflogpath>   path+name example: /var/log/test.txt\n"
-		"  err_filesendkafkalogpath = <err_fslogpath>   path+name example: /var/log/test.txt\n"
-		"  global_logwritelocal = <global_logwritelocal>   default 0 means write log in local others rersyslog\n"
-		"  global_logmaxnum = <global_logmaxnum>   default 5  , should 0--9\n"
+		"   brokers = <host2[:port1][,host2[:port2]...]>\n"
+		"   topic = <topic>\n" "   partitions = <partitions>\n"
+		"   data_filelogpath = <daflogpath>   path+name example: /var/log/test.txt\n"
+		"   err_filelibrdkafkalogpath = <erflogpath>   path+name example: /var/log/test.txt\n"
+		"   err_filesendkafkalogpath = <err_fslogpath>   path+name example: /var/log/test.txt\n"
+		"   g_logsavelocal_tag = <g_logsavelocal_tag>   default 0 means write log in local others rersyslog\n"
+		"   g_logfilenum_max = <g_logfilenum_max>   default 5  , should 0--9\n"
 		"\n", cmd);
 	exit(2);
 }
 
 /*
- *function if success will return file size 
- *else return -1
+ * function if success will return file size 
+ * else return -1
  */
-off_t getfilesize(char *pathname)
+off_t get_file_size(char *pathname)
 {
 	struct stat buff;
 	if (0 != access(pathname, F_OK)) {
@@ -219,11 +219,11 @@ off_t getfilesize(char *pathname)
 }
 
 /*
- *function get pathname file  total num example
- *if  <pathname-0,pathname-1,pathname-2....> the
- *total num=3
+ * function get pathname file  total num example
+ * if  <pathname-0,pathname-1,pathname-2....> the
+ * total num=3
  */
-int getfilenum(char *pathname)
+int get_file_num(char *pathname)
 {
 	int i = 0;
 	int num = 0;
@@ -233,7 +233,7 @@ int getfilenum(char *pathname)
 	strncat(path, "-", 2);
 	int len = strlen(path);
 	printf("len : %d\n", len);
-	for (; i < global_logmaxnum; ++i, c = c + 1) {
+	for (; i < g_logfilenum_max; ++i, c = c + 1) {
 		path[len] = c;
 		path[len + 1] = '\0';
 		if (0 == access(path, F_OK)) {
@@ -247,11 +247,11 @@ int getfilenum(char *pathname)
 }
 
 /*
- *function rename file new name for i to global_logmaxnum  
- *example  < name-0 --> name-1  name-1-->name-2...>
+ * function rename file new name for i to g_logfilenum_max  
+ * example  < name-0 --> name-1  name-1-->name-2...>
  *
  */
-void newname(char *pathname, int num)
+void rename_file(char *pathname, int num)
 {
 	int i = 0;
 	char buf[128] = { 0 };
@@ -267,7 +267,7 @@ void newname(char *pathname, int num)
 	}
 
 	char c =
-	    ((num == global_logmaxnum) ? (global_logmaxnum - 2) : (num)) + '0';
+	    ((num == g_logfilenum_max) ? (g_logfilenum_max - 2) : (num)) + '0';
 	memcpy(newbuf, buf, len + 1);
 	for (i = num - 1; i >= 0; --i, c = c - 1) {
 		buf[len] = c - 1;
@@ -286,39 +286,39 @@ void newname(char *pathname, int num)
 }
 
 /*
- *function roate log depends on file's size ,if the 
- *file size more than maxsize ,the file will cut apart
- *and usr can configure the maxsize 
+ * function roate log depends on file's size ,if the 
+ * file size more than maxsize ,the file will cut apart
+ * and usr can configure the maxsize 
  */
-int logroate(char *pathname, int fd)
+int rotate_logs(char *pathname, int fd)
 {
-	if (getfilesize(pathname) >= global_logmaxsize) {
+	if (get_file_size(pathname) >= g_logfilesize_max) {
 		char buf[128] = { 0 };
 		strcpy(buf, pathname);
 		int len = strlen(buf);
-		int num = getfilenum(pathname);
+		int num = get_file_num(pathname);
 
-		if (num == global_logmaxnum) {
+		if (num == g_logfilenum_max) {
 
 			strncat(buf, "-", 2);
-			buf[len + 1] = global_logmaxnum + '0' - 1;
+			buf[len + 1] = g_logfilenum_max + '0' - 1;
 			buf[len + 2] = '\0';
 			unlink(buf);
 		}
 
 		close(fd);
 
-		newname(pathname, num);
+		rename_file(pathname, num);
 
 		int newfd = open(pathname, O_WRONLY | O_APPEND | O_CREAT, 0666);
 
 		if (fd == -1) {
 			char buf[100] = { 0 };
 			sprintf(buf, "%d", __LINE__ - 4);
-			strncat(buf, "  line open global_efliblogpath  fail...",
+			strncat(buf, "  line open g_error_librdkfk_logpath  fail...",
 				strlen
-				("  line open global_efliblogpath  fail..."));
-			write_log(global_logwritelocal, LOG_CRIT, buf);
+				("  line open g_error_librdkfk_logpath  fail..."));
+			save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
 			perror(buf);
 			exit(3);
 		}
@@ -332,8 +332,8 @@ int logroate(char *pathname, int fd)
 }
 
 /*
- *function  return  the  time since the Epoch
- *       (00:00:00 UTC, January 1, 1970), measured in sec-onds
+ * function  return  the  time since the Epoch
+ * (00:00:00 UTC, January 1, 1970), measured in sec-onds
  *
  */
 time_t getcurrents()
@@ -341,8 +341,8 @@ time_t getcurrents()
 	return time(NULL);
 }
 
-/*function get system time and return string
- *waring the string will store '\n'
+/* function get system time and return string
+ * warning the string will store '\n'
  */
 char *getcurrenttime()
 {
@@ -352,14 +352,15 @@ char *getcurrenttime()
 }
 
 /*
- *function monitor librdkafka queue and write to local  
- *file the path will depend on usr configure
+ * function monitor librdkafka queue size and write to   
+ * local  file , the path will depend on usr configure
+ * default /var/log/sendkafka
  */
-void controlquesizelog(rd_kafka_t ** rks, int num, char *pathname)
+void check_queuedata_size(rd_kafka_t ** rks, int num, char *pathname)
 {
 	static time_t lasttime = 0;
 	time_t curenttime = getcurrents();
-	if ((curenttime % monitortime) == 0 && curenttime != lasttime) {
+	if ((curenttime % g_monitor_period) == 0 && curenttime != lasttime) {
 		char buf[128] = { 0 };
 		int i = 0;
 		if (access(pathname, F_OK) != 0) {
@@ -368,7 +369,7 @@ void controlquesizelog(rd_kafka_t ** rks, int num, char *pathname)
 				sprintf(buf, "%d", __LINE__ - 3);
 				strncat(buf, "  line pathname  error...",
 					strlen("  line pathname  error..."));
-				write_log(global_logwritelocal, LOG_CRIT, buf);
+				save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
 				perror(buf);
 				exit(4);
 			}
@@ -379,7 +380,7 @@ void controlquesizelog(rd_kafka_t ** rks, int num, char *pathname)
 			sprintf(buf, "%d", __LINE__ - 3);
 			strncat(buf, "  line open  pathname  no permit...",
 				strlen("  line open  pathname  no permit..."));
-			write_log(global_logwritelocal, LOG_CRIT, buf);
+			save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
 			perror(buf);
 			exit(5);
 		}
@@ -400,7 +401,7 @@ void controlquesizelog(rd_kafka_t ** rks, int num, char *pathname)
 			memset(buf, '\0', 128);
 		}
 
-		int newfd = logroate(pathname, fd);
+		int newfd = rotate_logs(pathname, fd);
 		fd = newfd > 0 ? newfd : fd;
 
 		close(fd);
@@ -409,65 +410,32 @@ void controlquesizelog(rd_kafka_t ** rks, int num, char *pathname)
 }
 
 /*
- *function write librdkafka log info to local
- *file the path will depend on usr configure
+ * function write librdkafka log info to local
+ * file the path will depend on usr configure
+ * default /var/log/sendkafka
  */
 
-void libwrite(const rd_kafka_t * rk, int level, const char *fac,
+void save_liberr_tolocal(const rd_kafka_t * rk, int level, const char *fac,
 	      const char *buf)
 {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	if (access(global_efliblogpath, F_OK) != 0) {
-
-		if (creat(global_efliblogpath, 0666) == -1) {
-			char buf[100] = { 0 };
-			sprintf(buf, "%d", __LINE__ - 3);
-			strcat(buf, " line create pathname  error");
-			perror(buf);
-			exit(6);
-		}
-
-	}
-	if (access(global_efliblogpath, W_OK) != 0) {
-		char buf[100] = { 0 };
-		sprintf(buf, "%d", __LINE__ - 3);
-		strncat(buf, "  line global_efliblogpath  error...",
-			strlen("  line global_efliblogpath  error..."));
-		perror(buf);
-		exit(7);
-
-	}
-
-	int fd = open(global_efliblogpath, O_CREAT | O_WRONLY | O_APPEND, 0666);
-
-	if (fd == -1) {
-		char buf[100] = { 0 };
-		sprintf(buf, "%d", __LINE__ - 4);
-		strncat(buf, "  line open global_efliblogpath  fail...",
-			strlen("  line open global_efliblogpath  fail..."));
-		perror(buf);
-		exit(8);
-	}
 
 	char errbuf[1024] = { 0 };
 	sprintf(errbuf, "%%%i|%u.%03u|%s|%s| %s\n",
 		level, (int)tv.tv_sec, (int)(tv.tv_usec / 1000),
 		fac, rk ? rk->rk_broker.name : "", buf);
 
-	int newfd = logroate(global_efliblogpath, fd);
-	fd = newfd > 0 ? newfd : fd;
+	save_snderr_tolocal(g_error_librdkfk_logpath,errbuf);
 
-	write(fd, errbuf, strlen(errbuf));
-
-	close(fd);
 }
 
 /*
- *function write sendkafka log info to local
- *file the path will depend on usr configure
+ * function write sendkafka log info to local
+ * file the path will depend on usr configure
+ * default /var/log/sendkafka
  */
-void sdkafkaerrloglocal(char *pathname, char *errinfo)
+void save_snderr_tolocal(char *pathname, char *errinfo)
 {
 
 	if (access(pathname, F_OK) != 0) {
@@ -501,7 +469,7 @@ void sdkafkaerrloglocal(char *pathname, char *errinfo)
 	}
 
 	if (NULL != errinfo) {
-		int newfd = logroate(pathname, fd);
+		int newfd = rotate_logs(pathname, fd);
 
 		fd = newfd > 0 ? newfd : fd;
 		write(fd, errinfo, strlen(errinfo));
@@ -512,11 +480,11 @@ void sdkafkaerrloglocal(char *pathname, char *errinfo)
 }
 
 /*
- *function it will write some log info to rsyslog 
- *facility: log  type,level: log priority,markname 
- *is target indent, loginfo:log content
+ * function it will write some log info to rsyslog 
+ * facility: log  type,level: log priority,markname 
+ * is target indent, loginfo:log content
  */
-int replysyslog(int facility, int level, char *markname, char *loginfo)
+int save_log_torsyslog(int facility, int level, char *markname, char *loginfo)
 {
 
 	openlog(markname, LOG_CONS | LOG_PID, facility);
@@ -528,25 +496,25 @@ int replysyslog(int facility, int level, char *markname, char *loginfo)
 }
 
 /*
- *function: write log to file or rsyslog depend on state
- *if state is zero that will write log to usr configure path
- *else reply rsyslog 
+ * function: write log to file or rsyslog depend on state
+ * if state is zero that will write log to usr configure path
+ * else write log  to rsyslog ,default write log to local file
  */
 
-int write_log(int state, int level, char *info)
+int save_err_tofile(int state, int level, char *info)
 {
 	char *perrbuf = NULL;
 	if (NULL != info) {
 		perrbuf = strdup(info);
 	}
 	if (state == 0) {
-		rd_kafka_set_logger(libwrite);
+		rd_kafka_set_logger(save_liberr_tolocal);
 		if (NULL != info) {
-			sdkafkaerrloglocal(global_efsdkfklogpath, perrbuf);
+			save_snderr_tolocal(g_error_sdkfk_logpath, perrbuf);
 		}
 	} else {
 		if (NULL != info) {
-			replysyslog(LOG_LOCAL0, level, "SENDKAFKA: ", perrbuf);
+			save_log_torsyslog(LOG_LOCAL0, level, "SENDKAFKA: ", perrbuf);
 		}
 
 		rd_kafka_set_logger(rd_kafka_log_syslog);
@@ -558,21 +526,21 @@ int write_log(int state, int level, char *info)
 }
 
 /*
- *function: check librdkafka queue and write it to  
+ * function: check librdkafka queue and write it to  
  * local file if the queue not empty,the path will
- * depend on usr configure 
+ * depend on usr configure, default /var/log/sendkafka
  */
-void kafkaqueuetof(rd_kafka_t ** rks, int rkcount)
+void save_queuedata_tofile(rd_kafka_t ** rks, int rkcount)
 {
 
-	int fd = open(global_dflogpath, O_WRONLY | O_APPEND | O_CREAT, 0666);
+	int fd = open(g_queue_data_filepath, O_WRONLY | O_APPEND | O_CREAT, 0666);
 
 	if (fd == -1) {
 		char buf[100] = { 0 };
 		sprintf(buf, "%d", __LINE__ - 4);
-		strncat(buf, "  line open global_dflogpath  fail...",
-			strlen("  line open global_dflogpath  fail..."));
-		write_log(global_logwritelocal, LOG_CRIT, buf);
+		strncat(buf, "  line open g_queue_data_filepath  fail...",
+			strlen("  line open g_queue_data_filepath  fail..."));
+		save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
 		perror(buf);
 		exit(12);
 	}
@@ -592,25 +560,26 @@ void kafkaqueuetof(rd_kafka_t ** rks, int rkcount)
 }
 
 /*
- *function save opbuf to local file when error exit
- *and the file path depends usr configure
+ * function save opbuf to local file when error exit
+ * and the file path will depends on usr configure
+ * default /var/log/sendkafka
  */
-void savelocaldatatofile(char *opbuf)
+void save_snddata_tofile(char *opbuf)
 {
 	if (opbuf == NULL || strlen(opbuf))
 		return;
-	if (getfilesize(global_dflogpath) > 0) {
-		unlink(global_dflogpath);
+	if (get_file_size(g_queue_data_filepath) > 0) {
+		unlink(g_queue_data_filepath);
 	}
 
-	int fd = open(global_dflogpath, O_WRONLY | O_APPEND | O_CREAT, 0666);
+	int fd = open(g_queue_data_filepath, O_WRONLY | O_APPEND | O_CREAT, 0666);
 
 	if (fd == -1) {
 		char buf[100] = { 0 };
 		sprintf(buf, "%d", __LINE__ - 4);
-		strncat(buf, "  line open global_dflogpath  fail...",
-			strlen("  line open global_dflogpath  fail..."));
-		write_log(global_logwritelocal, LOG_CRIT, buf);
+		strncat(buf, "  line open g_queue_data_filepath  fail...",
+			strlen("  line open g_queue_data_filepath  fail..."));
+		save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
 		perror(buf);
 		exit(13);
 	}
@@ -622,11 +591,11 @@ void savelocaldatatofile(char *opbuf)
 }
 
 /*
- *function get stdin or local file opbuf to librdkafka queue
- *circle  opbuf to queue when one fail,return zero of success 
- *if fail will return 1 
+ * function get stdin or local file opbuf to librdkafka queue
+ * if fail will roate very broker queue,if success return 0
+ * else will return 1 
  */
-int producter(rd_kafka_t ** rks, char *topic, int partitions, int tag,
+int roate_send_toqueue(rd_kafka_t ** rks, char *topic, int partitions, int tag,
 	      char *buf, int len, int rkcount)
 {
 	int i = 0;
@@ -652,7 +621,7 @@ int producter(rd_kafka_t ** rks, char *topic, int partitions, int tag,
 			char *buf = calloc(1, strlen(buf) + 128);
 			sprintf(buf, "%s sendkafka[%d]: failed: %s\n", timebuf,
 				getpid(), buf);
-			write_log(global_logwritelocal, LOG_INFO, buf);
+			save_err_tofile(g_logsavelocal_tag, LOG_INFO, buf);
 			free(buf);
 			buf = NULL;
 			continue;
@@ -664,21 +633,22 @@ int producter(rd_kafka_t ** rks, char *topic, int partitions, int tag,
 }
 
 /*
- *function circle send opbuf to librdkafka queue ,
- *if the five time all failed and will exit , 
- *will write some error to local file ,and check
- *librdkafka queue data write file if size not zero
+ * function circle roate send opbuf to librdkafka queue ,
+ * if the five time all failed it  will exit , at the
+ * same time will write some error info  to local file 
+ * and check librdkafka queue data if it not empty then
+ * will write queuedata file
  *
  */
-void productercircle(rd_kafka_t * *rks, char *topic, int partitions, int tag,
+void producer(rd_kafka_t * *rks, char *topic, int partitions, int tag,
 		     char *opbuf, int len, int rkcount)
 {
 	int failnum = 0;
 	int s = 1;
 	while (s) {
-		s = producter(rks, topic, partitions, RD_KAFKA_OP_F_FREE, opbuf,
+		s = roate_send_toqueue(rks, topic, partitions, RD_KAFKA_OP_F_FREE, opbuf,
 			      len, rkcount);
-		controlquesizelog(rks, rkcount, global_monitorlogpath);
+		check_queuedata_size(rks, rkcount, g_monitor_qusizelogpath);
 		if (s == 1) {
 			sleep(1);
 			if (++failnum == 5) {
@@ -689,11 +659,11 @@ void productercircle(rd_kafka_t * *rks, char *topic, int partitions, int tag,
 					timebuf);
 				char *buf = calloc(1, strlen(opbuf) + 128);
 				sprintf(buf, "%s all broker down \n", timebuf);
-				write_log(global_logwritelocal, LOG_INFO, buf);
+				save_err_tofile(g_logsavelocal_tag, LOG_INFO, buf);
 				free(buf);
 				buf = NULL;
-				savelocaldatatofile(opbuf);
-				kafkaqueuetof(rks, rkcount);
+				save_snddata_tofile(opbuf);
+				save_queuedata_tofile(rks, rkcount);
 				exit(14);
 			}
 		}
@@ -735,43 +705,49 @@ int main(int argc, char **argv)
 	if (read_config
 	    ("data_filelogpath", value, sizeof(value),
 	     "/etc/sendkafka.conf") > 0) {
-		strcpy(global_dflogpath, value);
+		strcpy(g_queue_data_filepath, value);
 		memset(value, '\0', 1024);
 	}
 	if (read_config
 	    ("err_filelibrdkafkalogpath", value, sizeof(value),
 	     "/etc/sendkafka.conf") > 0) {
-		strcpy(global_efliblogpath, value);
+		strcpy(g_error_librdkfk_logpath, value);
 		memset(value, '\0', 1024);
 	}
 	if (read_config
 	    ("err_filesendkafkalogpath", value, sizeof(value),
 	     "/etc/sendkafka.conf") > 0) {
-		strcpy(global_efsdkfklogpath, value);
+		strcpy(g_error_sdkfk_logpath, value);
 		memset(value, '\0', 1024);
 	}
 
 	if (read_config
-	    ("global_logwritelocal", value, sizeof(value),
+	    ("g_logsavelocal_tag", value, sizeof(value),
 	     "/etc/sendkafka.conf") > 0) {
-		global_logwritelocal = atoi(value);
+		g_logsavelocal_tag = atoi(value);
 	}
 	if (read_config
-	    ("global_logmaxnum", value, sizeof(value),
+	    ("g_logfilenum_max", value, sizeof(value),
 	     "/etc/sendkafka.conf") > 0) {
-		global_logmaxnum = atoi(value);
-	}
-
-	if (read_config
-	    ("global_logmaxsize", value, sizeof(value),
-	     "/etc/sendkafka.conf") > 0) {
-		global_logmaxsize = atoi(value);
+		g_logfilenum_max = atoi(value);
 	}
 
 	if (read_config
-	    ("global_monitorlogpath", value, sizeof(value),
+	    ("g_monitor_period", value, sizeof(value),
 	     "/etc/sendkafka.conf") > 0) {
-		strcpy(global_monitorlogpath, value);
+		g_monitor_period = atoi(value);
+	}
+
+	if (read_config
+	    ("g_logfilesize_max", value, sizeof(value),
+	     "/etc/sendkafka.conf") > 0) {
+		g_logfilesize_max = atoi(value);
+	}
+
+	if (read_config
+	    ("g_monitor_qusizelogpath", value, sizeof(value),
+	     "/etc/sendkafka.conf") > 0) {
+		strcpy(g_monitor_qusizelogpath, value);
 		memset(value, '\0', 1024);
 	}
 	while ((opt = getopt(argc, argv, "hb:c:d:p:t:o:m:n:l:s:x:")) != -1) {
@@ -806,54 +782,60 @@ int main(int argc, char **argv)
 			    ("data_filelogpath", value, sizeof(value),
 			     optarg) > 0) {
 
-				strcpy(global_dflogpath, value);
+				strcpy(g_queue_data_filepath, value);
 				memset(value, '\0', 1024);
 			}
 			if (read_config
 			    ("monitor_logpath", value, sizeof(value),
 			     optarg) > 0) {
 
-				strcpy(global_monitorlogpath, value);
+				strcpy(g_monitor_qusizelogpath, value);
 				memset(value, '\0', 1024);
 			}
 			if (read_config
 			    ("err_filelibrdkafkalogpath", value, sizeof(value),
 			     optarg) > 0) {
 
-				strcpy(global_efliblogpath, value);
+				strcpy(g_error_librdkfk_logpath, value);
 				memset(value, '\0', 1024);
 			}
 			if (read_config
 			    ("err_filesendkafkalogpath", value, sizeof(value),
 			     optarg) > 0) {
 
-				strcpy(global_efsdkfklogpath, value);
+				strcpy(g_error_sdkfk_logpath, value);
 				memset(value, '\0', 1024);
 			}
 
 			if (read_config
-			    ("global_logwritelocal", value, sizeof(value),
+			    ("g_logsavelocal_tag", value, sizeof(value),
 			     optarg) > 0) {
 
-				global_logwritelocal = atoi(value);
+				g_logsavelocal_tag = atoi(value);
 			}
 			if (read_config
-			    ("global_logmaxnum", value, sizeof(value),
+			    ("g_monitor_period", value, sizeof(value),
 			     optarg) > 0) {
 
-				global_logmaxnum = atoi(value);
+				g_monitor_period = atoi(value);
 			}
 			if (read_config
-			    ("global_logmaxsize", value, sizeof(value),
+			    ("g_logfilenum_max", value, sizeof(value),
 			     optarg) > 0) {
 
-				global_logmaxsize = atoi(value);
+				g_logfilenum_max = atoi(value);
+			}
+			if (read_config
+			    ("g_logfilesize_max", value, sizeof(value),
+			     optarg) > 0) {
+
+				g_logfilesize_max = atoi(value);
 			}
 			break;
 
 		case 'o':
 			if (NULL != optarg) {
-				global_logwritelocal = atoi(optarg);
+				g_logsavelocal_tag = atoi(optarg);
 			}
 			break;
 		case 't':
@@ -872,42 +854,47 @@ int main(int argc, char **argv)
 			break;
 		case 'm':
 			if (NULL != optarg) {
-				global_logmaxsize = atoi(optarg);
+				g_logfilesize_max = atoi(optarg);
 			}
 			break;
 		case 'l':
 			if (NULL != optarg) {
 
-				memset(global_efliblogpath, '\0',
-				       strlen(global_efliblogpath));
-				strcpy(global_efliblogpath, optarg);
+				memset(g_error_librdkfk_logpath, '\0',
+				       strlen(g_error_librdkfk_logpath));
+				strcpy(g_error_librdkfk_logpath, optarg);
 			}
 			break;
 
 		case 's':
 			if (NULL != optarg) {
-				memset(global_efsdkfklogpath, '\0',
-				       strlen(global_efsdkfklogpath));
-				strcpy(global_efsdkfklogpath, optarg);
+				memset(g_error_sdkfk_logpath, '\0',
+				       strlen(g_error_sdkfk_logpath));
+				strcpy(g_error_sdkfk_logpath, optarg);
 			}
 			break;
 		case 'd':
 			if (NULL != optarg) {
-				memset(global_dflogpath, '\0',
-				       strlen(global_dflogpath));
-				strcpy(global_dflogpath, optarg);
+				memset(g_queue_data_filepath, '\0',
+				       strlen(g_queue_data_filepath));
+				strcpy(g_queue_data_filepath, optarg);
 			}
 			break;
 		case 'x':
 			if (NULL != optarg) {
-				memset(global_monitorlogpath, '\0',
-				       strlen(global_monitorlogpath));
-				strcpy(global_monitorlogpath, optarg);
+				memset(g_monitor_qusizelogpath, '\0',
+				       strlen(g_monitor_qusizelogpath));
+				strcpy(g_monitor_qusizelogpath, optarg);
 			}
 			break;
 		case 'n':
 			if (NULL != optarg) {
-				global_logmaxnum = atoi(optarg);
+				g_logfilenum_max = atoi(optarg);
+			}
+			break;
+		case 'r':
+			if (NULL != optarg) {
+				g_monitor_period = atoi(optarg);
 			}
 			break;
 		case 'h':
@@ -917,7 +904,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	write_log(global_logwritelocal, 0, NULL);
+	save_err_tofile(g_logsavelocal_tag, 0, NULL);
 
 	signal(SIGINT, stop);
 	signal(SIGTERM, stop);
@@ -944,8 +931,8 @@ int main(int argc, char **argv)
 			buf[strlen(buf) - 1] = '\0';
 			strncat(buf, "kafka_new producer is fail...", 29);
 			perror(buf);
-			write_log(global_logwritelocal, LOG_CRIT, buf);
-			global_run = 0;
+			save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
+			g_run_tag = 0;
 
 		}
 
@@ -953,16 +940,16 @@ int main(int argc, char **argv)
 
 	FILE *fp = NULL;
 	opbuf = NULL;
-	if (access(global_dflogpath, F_OK) == 0) {
-		fp = fopen(global_dflogpath, "r");
+	if (access(g_queue_data_filepath, F_OK) == 0) {
+		fp = fopen(g_queue_data_filepath, "r");
 		if (fp == NULL) {
 			char buf[100] = { 0 };
 			sprintf(buf, "%d", __LINE__ - 4);
 			strncat(buf,
-				"  line open global_dflogpath  fail...",
+				"  line open g_queue_data_filepath  fail...",
 				strlen
-				("  line open global_dflogpath  fail..."));
-			write_log(global_logwritelocal, LOG_CRIT, buf);
+				("  line open g_queue_data_filepath  fail..."));
+			save_err_tofile(g_logsavelocal_tag, LOG_CRIT, buf);
 			perror(buf);
 
 			exit(15);
@@ -971,30 +958,32 @@ int main(int argc, char **argv)
 			++sendcnt;
 			opbuf = strdup(buf);
 			len = strlen(opbuf);
-			productercircle(rks, topic, partitions,
+			producer(rks, topic, partitions,
 					RD_KAFKA_OP_F_FREE,
 					opbuf, len, rkcount);
 		}
 
-		if (getfilesize(global_dflogpath) > 0) {
-			unlink(global_dflogpath);
+		if (get_file_size(g_queue_data_filepath) > 0) {
+			unlink(g_queue_data_filepath);
 		}
 	}
 
-	fclose(fp);
+	if(NULL!=fp) {
+		fclose(fp);
+	}
 	char *eptr = NULL;
 
-	while (global_run) {
+	while (g_run_tag) {
 		eptr = fgets(buf, sizeof(buf), stdin);
 		if (EINTR == errno || NULL == eptr) {
-			global_run = 0;
+			g_run_tag = 0;
 			break;
 		}
 		++sendcnt;
 		opbuf = strdup(buf);
 		len = strlen(opbuf);
 
-		productercircle(rks, topic, partitions,
+		producer(rks, topic, partitions,
 				RD_KAFKA_OP_F_FREE, opbuf, len, rkcount);
 
 
@@ -1011,7 +1000,7 @@ int main(int argc, char **argv)
 			sprintf(buf,
 				"%s sendkafka[%d]: Sent %i messages to topic %s\n",
 				timebuf, getpid(), sendcnt, topic);
-			write_log(global_logwritelocal, LOG_INFO, buf);
+			save_err_tofile(g_logsavelocal_tag, LOG_INFO, buf);
 			free(buf);
 			buf = NULL;
 		}
@@ -1019,7 +1008,7 @@ int main(int argc, char **argv)
 	}
 
 	printf("sendcnt num %d\n", sendcnt);
-	kafkaqueuetof(rks, rkcount);
+	save_queuedata_tofile(rks, rkcount);
 
 	/* Destroy the handle */
 	for (i = 0; i < rkcount; i++) {
