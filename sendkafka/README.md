@@ -3,7 +3,8 @@
 
 
 * need librdkafka installed in parent directory
- * https://github.com/edenhill/librdkafka
+ 
+* https://github.com/edenhill/librdkafka
 
 * need kafka broker running locally
 
@@ -34,7 +35,7 @@ make install
 ```
 
 
-*error.log save librdkafka or sendkafka error information
+* error.log save librdkafka or sendkafka error information
 
 * queue.data save librdkafka queue or local data when program exit if it not empty 
 
@@ -90,7 +91,7 @@ logsize_max = 1000000
 
 #warning
 
-*when there are multiple processes running program ,all of its configuration file must be named after their program name and add ".conf" end(at rsyslog v7)
+* when there are multiple processes running program ,all of its configuration file must be named after their program name and add ".conf" end(at rsyslog v7)
 
 
 
