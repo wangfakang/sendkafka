@@ -182,7 +182,7 @@ static void rd_kafka_log (const rd_kafka_t *rk, int level,
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
-	strcpy(buf,getcurenttime());
+	//strcpy(buf,getcurenttime());
 	rd_kafka_log_cb(rk, level, fac, buf);
 }
 
@@ -392,7 +392,7 @@ static int rd_kafka_connect (rd_kafka_t *rk) {
 		return -1;
 	}
 
-	rd_kafka_dbg(rk, "CONNECTED", "connected to %s|",
+	rd_kafka_dbg(rk, "CONNECTED", "connected to %s",
 		     rd_sockaddr2str(sinx, RD_SOCKADDR2STR_F_NICE));
 
 	rd_kafka_set_state(rk, RD_KAFKA_STATE_UP);
@@ -419,7 +419,7 @@ static int rd_kafka_send (rd_kafka_t *rk, const struct msghdr *msg) {
 
 	r = sendmsg(rk->rk_broker.s, msg, 0);
 	if (r == -1) {
-		rd_kafka_fail(rk, "Send failed: %s|", strerror(errno));
+		rd_kafka_fail(rk, "Send failed: %s", strerror(errno));
 		return -1;
 	} else {
         

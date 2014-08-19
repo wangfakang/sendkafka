@@ -9,15 +9,19 @@ LDFLAGS += -lpthread -lrt -lz
 #LDFLAGS += -pg
 
 all: sendkafka
-
+#all:rdkafka_example
 
 sendkafka: sendkafka.c
 	@(test $@ -nt $< || \
 	  $(CC) $(CFLAGS) $< -o $@ $(LDFLAGS))
+
+rdkafka_example: rdkafka_example.c
+	@(test $@ -nt $< || $(CC) $(CFLAGS) $< -o $@ $(LDFLAGS))
+
 
 install:
 	install sendkafka /usr/local/bin/
 
 
 clean:
-	rm -rf *.o sendkafka
+	rm -rf *.o sendkafka 
