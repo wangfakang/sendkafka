@@ -1,7 +1,6 @@
 #Pre-requisites
-*sudo apt-get install zlib1g-dev
 
-
+* sudo apt-get install zlib1g-dev
 * need librdkafka installed in parent directory
  
 * https://github.com/edenhill/librdkafka
@@ -71,7 +70,7 @@ error_path = /var/log/sendkafka/errlog.log
 
 
 * queue_sizepath is means check queue size file  path(the path must less than 1024 Bytes).
-queue_sizepath=/var/log/sendkafka/queuesize.log
+queue_sizepath = /var/log/sendkafka/queuesize.log
 
 
 * monitor_period is default  very 10 senconds will run mointorfunction(every 10 seconds to check a queue size).
