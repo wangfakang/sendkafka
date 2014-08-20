@@ -636,18 +636,22 @@ int main(int argc, char *argv[],char *envp[])
 	int opt;
 	int len = 0;
 	char *opbuf = NULL;
-        char cmdparameter[1024]="/etc/";
+        char cmdparameter[1024]=" ";
 	int cmdlen = sizeof(cmdparameter);
-	char *cmdptr1=NULL;
-	char *cmdptr2=NULL;
-	for(cmdptr2=strtok(argv[0],"/");cmdptr2!=NULL;cmdptr2=strtok(NULL,"/")){
-		cmdptr1=cmdptr2;	
+	char *cmdptr1 = NULL;
+	char *cmdptr2 = NULL;
+	char *tmp=NULL;
+	if(argv[0]!=NULL){
+	 tmp=strdup(argv[0]);
+	}
+	for(cmdptr2=strtok(tmp,"/");cmdptr2!=NULL;cmdptr2=strtok(NULL,"/")){
+		cmdptr1 = cmdptr2;	
 	}	
 	
-	strncpy(cmdparameter+strlen(cmdparameter),cmdptr1,sizeof(cmdparameter)-1);
-	cmdparameter[cmdlen-1]='\0';
-	strncat(cmdparameter,".conf",cmdlen-strlen(cmdparameter)-1);
-
+	snprintf(cmdparameter, sizeof(cmdparameter), "/etc/sendkafka/%s.conf", tmp);
+	free(tmp);
+	tmp = NULL;
+	
 	if (read_config("brokers", value, sizeof(value), cmdparameter)
 	    > 0) {
 		strcpy(brokers, value);
