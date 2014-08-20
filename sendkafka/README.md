@@ -20,6 +20,7 @@ make install
 * if you want to use the default configuration file, you need to perform the following two steps
 
 make dir
+
 make mv
 
 
@@ -32,7 +33,8 @@ make mv
 
 * Warning when there are multiple processes running program ,all of its configuration file must be named after their program name and add ".conf" end(at rsyslog v7)
 
-* All log files are default stored in the '/var/log/sendkafka/ ' directory below ,default error.log queue.data queuesize.log , if you want to use default you should be mkddir /var/log/sendkafka directory
+* All log files are default stored in the '/var/log/sendkafka/ ' directory below ,default error.log queue.data queuesize.log , if you want to use default you should be mkddir /var/log/sendkafka directory,and Need to move the sendkafka.conf configuration files to the /etc/ directory
+
 
 
 
