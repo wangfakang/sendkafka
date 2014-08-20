@@ -66,7 +66,7 @@ off_t get_file_size(char *pathname);
 void rename_file(char *pathname, int num);
 int rotate_logs(char *pathname);
 
-int  roate_send_toqueue(rd_kafka_t * *rks, char *topic, int partitions, int tag,
+int  rotate_send_toqueue(rd_kafka_t * *rks, char *topic, int partitions, int tag,
 		     char *opbuf, int len, int rkcount);
 void producer(rd_kafka_t ** rks, char *topic, int partitions, int tag,
 	      char *buf, int len, int rkcount);
@@ -75,6 +75,7 @@ void save_queuedata_tofile(rd_kafka_t ** rks, int rkcount);
 void save_snddata_tofile(char *opbuf);
 static void stop(int sig);
 void usage(const char *cmd);
+size_t get_executable_path( char* processdir,char* processname, size_t len);
 
 /*
  * g_queue_data_filepath means librdkafka queue data's file  path,to save queue data when main exit 
@@ -199,6 +200,28 @@ void usage(const char *cmd)
 		"\n", cmd);
 	exit(2);
 }
+
+
+
+/*
+ * function get program's name and save to processname
+ * 
+ *
+ */
+size_t get_executable_path( char* processdir,char* processname, size_t len)
+{
+        char* path_end;
+        if(readlink("/proc/self/exe", processdir,len) <=0)
+                return -1;
+        path_end = strrchr(processdir,  '/');
+        if(path_end == NULL)
+                return -1;
+        ++path_end;
+        strcpy(processname, path_end);
+        *path_end = '\0';
+        return (size_t)(path_end - processdir);
+}
+
 
 /*
  * function if success will return file size 
@@ -554,7 +577,7 @@ void save_snddata_tofile(char *opbuf)
  * if fail will roate very broker queue,if success return 0
  * else will return 1 
  */
-int roate_send_toqueue(rd_kafka_t ** rks, char *topic, int partitions, int tag,
+int rotate_send_toqueue(rd_kafka_t ** rks, char *topic, int partitions, int tag,
 	      char *opbuf, int len, int rkcount)
 {
 	int i = 0;
@@ -600,7 +623,7 @@ void producer(rd_kafka_t * *rks, char *topic, int partitions, int tag,
 	int failnum = 0;
 	int s = 1;
 	while (s) {
-		s = roate_send_toqueue(rks, topic, partitions, RD_KAFKA_OP_F_FREE, opbuf,
+		s = rotate_send_toqueue(rks, topic, partitions, RD_KAFKA_OP_F_FREE, opbuf,
 			      len, rkcount);
 		check_queuedata_size(rks, rkcount, g_monitor_qusizelogpath);
 		if (s == 1) {
@@ -623,6 +646,10 @@ void producer(rd_kafka_t * *rks, char *topic, int partitions, int tag,
 	}
 }
 
+
+
+
+
 int main(int argc, char *argv[],char *envp[])
 {
 	rd_kafka_t *rks[1024] = { 0 };
@@ -636,32 +663,24 @@ int main(int argc, char *argv[],char *envp[])
 	int opt;
 	int len = 0;
 	char *opbuf = NULL;
-        char cmdparameter[1024]=" ";
-	int cmdlen = sizeof(cmdparameter);
-	char *cmdptr1 = NULL;
-	char *cmdptr2 = NULL;
-	char *tmp=NULL;
-	if(argv[0]!=NULL){
-	 tmp=strdup(argv[0]);
-	}
-	for(cmdptr2=strtok(tmp,"/");cmdptr2!=NULL;cmdptr2=strtok(NULL,"/")){
-		cmdptr1 = cmdptr2;	
-	}	
-	
-	snprintf(cmdparameter, sizeof(cmdparameter), "/etc/sendkafka/%s.conf", tmp);
-	free(tmp);
-	tmp = NULL;
-	
-	if (read_config("brokers", value, sizeof(value), cmdparameter)
+	char config_file[1024] = "";
+	char path[PATH_MAX] = {0};
+	char processname[1024] = {0};
+
+	get_executable_path(path,processname,sizeof(processname));
+	snprintf(config_file, sizeof(config_file), "/etc/sendkafka/%s.conf", processname);
+
+
+	if (read_config("brokers", value, sizeof(value), config_file)
 	    > 0) {
 		strcpy(brokers, value);
 	}
-	if (read_config("topic", value, sizeof(value),cmdparameter) >
+	if (read_config("topic", value, sizeof(value),config_file) >
 	    0) {
 		strcpy(topic, value);
 	}
 	if (read_config
-	    ("partitions", value, sizeof(value), cmdparameter) > 0) {
+	    ("partitions", value, sizeof(value), config_file) > 0) {
 		partitions = atoi(value);
 		if (partitions <= 0 || partitions > 256) {
 			partitions = 4;
@@ -670,41 +689,41 @@ int main(int argc, char *argv[],char *envp[])
 
 	if (read_config
 	    		("data_path", value, sizeof(value),
-	     		cmdparameter) > 0) {
+	     		config_file) > 0) {
 		strcpy(g_queue_data_filepath, value);
 	}
 	if (read_config
 			("error_path", value, sizeof(value),
-			 cmdparameter) > 0) {
+			 config_file) > 0) {
 		strcpy(g_error_logpath, value);
 	}
 
 	if (read_config
 			("logsavelocal_tag", value, sizeof(value),
-			 cmdparameter) > 0) {
+			 config_file) > 0) {
 		g_logsavelocal_tag = atoi(value);
 	}
 	if (read_config
 			("lognum_max", value, sizeof(value),
-			 cmdparameter) > 0) {
+			 config_file) > 0) {
 		g_logfilenum_max = atoi(value);
 	}
 
 	if (read_config
 			("monitor_period", value, sizeof(value),
-			 cmdparameter) > 0) {
+			 config_file) > 0) {
 		g_monitor_period = atoi(value);
 	}
 
 	if (read_config
 			("logsize_max", value, sizeof(value),
-			 cmdparameter) > 0) {
+			 config_file) > 0) {
 		g_logfilesize_max = atoi(value);
 	}
 
 	if (read_config
 			("queue_sizepath", value, sizeof(value),
-			 cmdparameter) > 0) {
+			 config_file) > 0) {
 		strcpy(g_monitor_qusizelogpath, value);
 	}
 
