@@ -17,6 +17,11 @@ make
 
 make install
 
+* if you want to use the default configuration file, you need to perform the following two steps
+
+make dir
+make mv
+
 
 
 

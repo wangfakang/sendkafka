@@ -21,6 +21,12 @@ rdkafka_example: rdkafka_example.c
 
 install:
 	install sendkafka /usr/local/bin/
+	
+dir:
+	mkdir /var/log/sendkafka 
+	
+mv:
+	mv ./sendkafka.conf  /etc/
 
 
 clean:
